@@ -57,7 +57,7 @@ func ProcessWebhook(plexChan chan<- models.PlexWebhookPayload, c *gin.Context) {
 		// only respond to events on a particular account if you share servers and only for movies and shows
 		// TODO: decodedPayload.Account.Title seems to always map to server owner not player account
 		if userID == "" || decodedPayload.Account.Title == userID {
-			if decodedPayload.Metadata.Type == movieItemTitle || decodedPayload.Metadata.Type == showItemTitle {
+			if strings.EqualFold(decodedPayload.Metadata.Type, movieItemTitle) || strings.EqualFold(decodedPayload.Metadata.Type, showItemTitle) {
 				select {
 				case plexChan <- decodedPayload:
 					// send succeeded
