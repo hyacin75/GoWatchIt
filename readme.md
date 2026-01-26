@@ -3,6 +3,7 @@
 
 <p>
 Building on the INCREDIBLE work by <a href="https://github.com/iloveicedgreentea">iloveicedgreentea</a> on <a href="https://github.com/iloveicedgreentea/GoWatchIt">GoWatchIt</a>, I have updated it for how _my_ Plex server is behaving in January 2026 - I was getting no matches due to a subtle capitalization change in Movie and Episode for type, and the TMDB IDs for shows were not matching literally anything in TMDB - they were completely invalid IDs - so for shows I instead now use the IMDB ID which is correct, to do a TMDB lookup to get a valid series ID from TMDB, which can then be used to query the ezBEQ database.  I have tested this against a few different shows with success, and validated movies still work.  This works for _my_ usecases, and I hope it works for someone else too while iloveicedgreentea works on his re-write.  I do not use Jellyfin or Emby, so the support from those is what comes from stock GoWatchIt, unless I've accidentially broken it.  Anyone using those and interested in this is welcome to fork this and apply my logic to those as well.
+
 </p>
 
 <p align="center">
