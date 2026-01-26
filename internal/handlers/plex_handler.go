@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
-	// "strconv"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -22,6 +22,7 @@ import (
 	"github.com/iloveicedgreentea/go-plex/internal/plex"
 	"github.com/iloveicedgreentea/go-plex/models"
 	"golang.org/x/exp/slices"
+	"github.com/cyruzin/golang-tmdb"
 )
 
 const showItemTitle = "Episode"
@@ -198,20 +199,101 @@ func mediaPlay(client *plex.PlexClient, beqClient *ezbeq.BeqClient, haClient *ho
 	}
 
 	log.Debugf("Found codec: %s", m.Codec)
-	// if its a show and you dont want beq enabled, exit
-	if payload.Metadata.Type == showItemTitle {
-		if !config.GetBool("ezbeq.enableTvBeq") {
-			return
-		}
-	}
 
 	m.TMDB = getPlexMovieDb(payload)
-	err = beqClient.LoadBeqProfile(m)
-	if err != nil {
-		log.Error(err)
-		return
+	m.IMDB = getPlexIMDB(payload)
+
+	// if its a show and you dont want beq enabled, exit
+	// if you do want beq, we need to use the imdb id to
+	// clobber the tmdb id as it seems Plex returns incorrect
+	// tmdb ids
+	if strings.EqualFold(payload.Metadata.Type, showItemTitle) {
+                if !config.GetBool("ezbeq.enableTvBeq") {
+                        return
+                } else {
+			if config.GetBool("ezbeq.enabletmdblookup" ) {
+				// I have no idea why the web interface is populating the field with the word undefined, but it seems
+				// to, so yes, I am literally checking for the string undefined here rather than address that, golang
+				// is already far enough beyond my skillset, I'm not diving into js or whatever too, this works
+				if config.GetString("ezbeq.tmdbapikey") != "" && config.GetString("ezbeq.tmdbapikey") != "undefined" {
+					tmdbClient, err := tmdb.Init(config.GetString("ezbeq.tmdbapikey"))
+					if err != nil {
+						log.Errorf("Error connecting to TMDB API, can't continue: %s", err)
+						// I can't think of any way to let this proceed to try to do a lookup
+						// with the Plex returned TMDB ID from this point without smacking into
+						// every subsequent hurdle/TMDB call and spewing errors or possibly
+						// crashing, so I'll 'return' from here - presumably if the user
+						// _wants_ TMDB lookup and it's not working, they should resolve that
+						// or disable it
+						return
+					}
+					tmdbClient.SetClientAutoRetry()
+					customClient := http.Client{
+						Timeout: time.Second * 5,
+						Transport: &http.Transport{
+							MaxIdleConns: 10,
+							IdleConnTimeout: 15 * time.Second,
+						},
+					}
+					tmdbClient.SetClientConfig(customClient)
+					options := map[string]string{
+						"external_source": "imdb_id",
+					}
+					tmdbdata, err := tmdbClient.GetFindByID(m.IMDB, options)
+					if err != nil {
+						log.Errorf("Error in TMDB API query, can't continue: %s", err)
+						// as above
+						return
+					}
+					episode := tmdbdata.TvEpisodeResults[0]
+					oldTMDB := m.TMDB
+					m.TMDB = strconv.Itoa(int(episode.ShowID))
+					m.Season = episode.SeasonNumber
+					m.Episode = episode.EpisodeNumber
+					// Getting show year mismatches after TMDB swap, where ezBEQ has year the series started
+					// and TMDB has year the season premiered or episode aired or something - if we've done
+					// a successful lookup, then we know the TMDB ID correlates to only a single show anyway
+					// so I'm going to override year to be 0 in that case, and will omit it from the search
+					// and filter
+					m.Year = 0
+
+					log.Debugf("TMDB lookup successful, TMDB ID change from %s to %s, season and episode set to %v and %v", oldTMDB, m.TMDB, m.Season, m.Episode)
+				} else {
+					log.Error("TMDB lookup requested but API key not provided, will proceed with TMDB ID returned from Plex instead")
+				}
+			}
+		}
+        }
+	// if we're dealing with a show and we've done a TMDB lookup, we'll have
+	// episode and season set - we can use the same logic used for codecs, to
+	// try specific lookups for the episode, then season, and failing that, just plain
+	if m.Season != 0 && m.Episode != 0 {
+		originalcodec := m.Codec
+		m.Text = fmt.Sprintf("S%02dE%02d", m.Season, m.Episode)
+                err = beqClient.LoadBeqProfile(m)
+                if err != nil {
+			m.Codec = originalcodec
+			m.Text = fmt.Sprintf("S%02d", m.Season)
+			err = beqClient.LoadBeqProfile(m)
+			if err != nil {
+				m.Codec = originalcodec
+				m.Text = ""
+				err = beqClient.LoadBeqProfile(m)
+				if err != nil {
+		                        log.Error(err)
+                		        return
+				}
+			}
+                }
+                log.Info("BEQ profile loaded")
+	} else {
+		err = beqClient.LoadBeqProfile(m)
+		if err != nil {
+			log.Error(err)
+			return
+		}
+		log.Info("BEQ profile loaded")
 	}
-	log.Info("BEQ profile loaded")
 
 	// send notification of it loaded
 	if config.GetBool("ezbeq.notifyOnLoad") && config.GetBool("homeAssistant.enabled") {
@@ -267,12 +349,36 @@ func mediaResume(client *plex.PlexClient, beqClient *ezbeq.BeqClient, haClient *
 			return
 		}
 
-		err = beqClient.LoadBeqProfile(m)
-		if err != nil {
-			log.Error(err)
-			return
+	        // if we're dealing with a show and we've done a TMDB lookup, we'll have
+	        // episode and season set - we can use the same logic used for codecs, to
+	        // try specific lookups for the episode, then season, and failing that, just plain
+	        if m.Season != 0 && m.Episode != 0 {
+			originalcodec := m.Codec
+        	        m.Text = fmt.Sprintf("S%02dE%02d", m.Season, m.Episode)
+                	err = beqClient.LoadBeqProfile(m)
+	                if err != nil {
+				m.Codec = originalcodec
+        	                m.Text = fmt.Sprintf("S%02d", m.Season)
+                	        err = beqClient.LoadBeqProfile(m)
+                        	if err != nil {
+					m.Codec = originalcodec
+	                                m.Text = ""
+        	                        err = beqClient.LoadBeqProfile(m)
+                	                if err != nil {
+                        	                log.Error(err)
+                                	        return
+	                                }
+        	                }
+                	}
+	                log.Info("BEQ profile loaded")
+		} else {
+			err = beqClient.LoadBeqProfile(m)
+			if err != nil {
+				log.Error(err)
+				return
+			}
+			log.Info("BEQ profile loaded")
 		}
-		log.Info("BEQ profile loaded")
 
 		// send notification of it loaded
 		if config.GetBool("ezbeq.notifyOnLoad") && config.GetBool("homeAssistant.enabled") {
@@ -426,7 +532,6 @@ func eventRouter(plexClient *plex.PlexClient, beqClient *ezbeq.BeqClient, haClie
 
 // get the tmdb ID from plex metadata
 func getPlexMovieDb(payload models.PlexWebhookPayload) string {
-	// try to get IMDB title from plex to save time
 	for _, model := range payload.Metadata.GUID0 {
 		if strings.Contains(model.ID, "tmdb") {
 			log.Debugf("getPlexMovieDb: Got tmdb ID from plex - %s", model.ID)
@@ -436,6 +541,19 @@ func getPlexMovieDb(payload models.PlexWebhookPayload) string {
 	log.Error("TMDB id not found in Plex. ezBEQ will not work. Please check your metadata for this title!")
 	return ""
 }
+
+// get the imdb ID from plex metadata - TMDB ID seems to always be wrong for shows
+func getPlexIMDB(payload models.PlexWebhookPayload) string {
+        for _, model := range payload.Metadata.GUID0 {
+                if strings.Contains(model.ID, "imdb") {
+                        log.Debugf("getPlexIMDB: Got IMDB ID from plex - %s", model.ID)
+                        return strings.Split(model.ID, "imdb://")[1]
+                }
+        }
+        log.Error("IMDB id not found in Plex. ezBEQ may not not work if this is a show. Please check your metadata for this title!")
+        return ""
+}
+
 
 // will change aspect ratio
 // func changeAspect(client *plex.PlexClient, payload models.PlexWebhookPayload, wg *sync.WaitGroup) {

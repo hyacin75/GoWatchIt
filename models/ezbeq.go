@@ -2,8 +2,10 @@ package models
 
 type SearchRequest struct {
 	TMDB            string
+	IMDB		string
 	Year            int
 	Codec           string
+	Text		string
 	PreferredAuthor string
 	Edition         string
 	SkipSearch      bool
@@ -14,6 +16,12 @@ type SearchRequest struct {
 	Devices         []string
 	Slots           []int
 	Title           string
+	// I know this is a right awful place to put this, but
+	// I'm not a professional programmer and this is the
+	// best I could come up with that would be available later
+	// to manipulate as we're doing the query
+	Season		int
+	Episode		int
 }
 
 type BeqCatalog struct {

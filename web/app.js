@@ -7,6 +7,8 @@ function populateFields(config) {
     document.getElementById('ezbeq-avrip').value = config.ezbeq.avrip;
     document.getElementById('ezbeq-dryrun').checked = config.ezbeq.dryrun;
     document.getElementById('ezbeq-enabletvbeq').checked = config.ezbeq.enabletvbeq;
+    document.getElementById('ezbeq-enabletmdblookup').checked = config.ezbeq.enabletmdblookup;
+    document.getElementById('ezbeq-tmdbapikey').value = config.ezbeq.tmdbapikey;
     document.getElementById('ezbeq-notifyendpointname').value = config.ezbeq.notifyendpointname;
     document.getElementById('ezbeq-notifyonload').checked = config.ezbeq.notifyonload;
     document.getElementById('ezbeq-port').value = config.ezbeq.port;
@@ -82,6 +84,8 @@ function buildFinalConfig() {
         "avrip": document.getElementById('ezbeq-avrip').value,
         "dryrun": document.getElementById('ezbeq-dryrun').checked,
         "enabletvbeq": document.getElementById('ezbeq-enabletvbeq').checked,
+	"enabletmdblookup": document.getElementById('ezbeq-enabletmdblookup').checked,
+	"tmdbapikey": document.getElementById('ezbeq-tmdbapikey').value,
         "notifyendpointname": document.getElementById('ezbeq-notifyendpointname').value,
         "notifyonload": document.getElementById('ezbeq-notifyonload').checked,
         "port": document.getElementById('ezbeq-port').value,

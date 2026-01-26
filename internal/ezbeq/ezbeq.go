@@ -228,6 +228,12 @@ func hasAuthor(s string) bool {
 	return hasAuthor != "none" && hasAuthor != ""
 }
 
+// hasText returns true if there is an author
+func hasText(s string) bool {
+        hasText := strings.ToLower(strings.TrimSpace(s))
+        return hasText != "none" && hasText != ""
+}
+
 // buildAuthorWhitelist returns a string of authors to search for
 func buildAuthorWhitelist(preferredAuthors string, endpoint string) string {
 	authors := strings.Split(preferredAuthors, ",")
@@ -241,12 +247,27 @@ func buildAuthorWhitelist(preferredAuthors string, endpoint string) string {
 func (c *BeqClient) searchCatalog(m *models.SearchRequest) (models.BeqCatalog, error) {
 	// url encode because of spaces and stuff
 	code := urlEncode(m.Codec)
+	// Getting show year mismatches after TMDB swap, where ezBEQ has year the series started
+	// and TMDB has year the season premiered or episode aired or something - if we've done
+	// a successful lookup, then we know the TMDB ID correlates to only a single show anyway
+	// so I'm going to override year to be 0 in that case, and will omit it from the search
+	// and filter
 	endpoint := fmt.Sprintf("/api/1/search?audiotypes=%s&years=%d&tmdbid=%s", code, m.Year, m.TMDB)
+	if m.Year == 0 {
+		endpoint = fmt.Sprintf("/api/1/search?audiotypes=%s&tmdbid=%s", code, m.TMDB)
+	}
 
 	// this is an author whitelist for each non-empty author append it to search
 	if hasAuthor(m.PreferredAuthor) {
 		endpoint = buildAuthorWhitelist(m.PreferredAuthor, endpoint)
 	}
+
+	// this checks for text inserted by our TMDB lookup and processing and appends to search if non-empty
+	if hasText(m.Text) {
+		text := urlEncode(m.Text)
+		endpoint += fmt.Sprintf("&text=%s", strings.TrimSpace(text))
+	}
+
 	log.Debugf("sending ezbeq search request to %s", endpoint)
 
 	var payload []models.BeqCatalog
@@ -285,15 +306,28 @@ func (c *BeqClient) searchCatalog(m *models.SearchRequest) (models.BeqCatalog, e
 				break
 			}
 		}
-		if val.MovieDbID == m.TMDB && val.Year == m.Year && audioMatch {
-			log.Debugf("%s matched with codecs %v, checking further", val.Title, val.AudioTypes)
-			// if it matches, check edition
-			if checkEdition(val, m.Edition) {
-				log.Infof("Found a match in catalog from author %s", val.Author)
-				return val, nil
-			} else {
-				log.Errorf("Found a potential match but editions did not match entry. Not loading")
+		if m.Year != 0 {
+			if val.MovieDbID == m.TMDB && val.Year == m.Year && audioMatch {
+				log.Debugf("%s matched with codecs %v, checking further", val.Title, val.AudioTypes)
+				// if it matches, check edition
+				if checkEdition(val, m.Edition) {
+					log.Infof("Found a match in catalog from author %s", val.Author)
+					return val, nil
+				} else {
+					log.Errorf("Found a potential match but editions did not match entry. Not loading")
+				}
 			}
+		} else {
+                        if val.MovieDbID == m.TMDB && audioMatch {
+                                log.Debugf("%s matched with codecs %v, checking further", val.Title, val.AudioTypes)
+                                // if it matches, check edition
+                                if checkEdition(val, m.Edition) {
+                                        log.Infof("Found a match in catalog from author %s", val.Author)
+                                        return val, nil
+                                } else {
+                                        log.Errorf("Found a potential match but editions did not match entry. Not loading")
+                                }
+                        }
 		}
 	}
 
@@ -388,6 +422,7 @@ func (c *BeqClient) LoadBeqProfile(m *models.SearchRequest) error {
 				return err
 			}
 		}
+
 		// get the values from catalog search
 		m.EntryID = catalog.ID
 		m.MVAdjust = catalog.MvAdjust
