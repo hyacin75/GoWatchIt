@@ -2,6 +2,10 @@ name: multiarch-container-build
 
 on:
   pull_request:
+    types:
+      - opened
+      - reopened
+      - closed
     branches: ['master', 'develop']  # Triggers on PR to these branches
 
 env:
@@ -36,6 +40,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
       - name: Build and push multi-arch
+        if: github.event.pull_request.merged == true
         uses: docker/build-push-action@v6.18.0
         with:
           context: .
