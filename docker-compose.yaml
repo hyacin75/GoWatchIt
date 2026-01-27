@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   plex-webhook-automation:
-    image: ghcr.io/iloveicedgreentea/gowatchit:latest
+    image: ghcr.io/hyacin75/gowatchit:latest
     ports:
       - '9999:9999' 
     environment: 
