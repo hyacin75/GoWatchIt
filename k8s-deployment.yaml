@@ -1,0 +1,43 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: gowatchit
+  name: gowatchit
+  namespace: gowatchit
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gowatchit
+  template:
+    metadata:
+      labels:
+        app: gowatchit
+    spec:
+      containers:
+      - image: ghcr.io/hyacin75/gowatchit:latest
+        env:
+        - name: TZ
+          value: America/Toronto
+        - name: LOG_LEVEL
+          value: info
+        name: gowatchit
+        ports:
+        - containerPort: 9999
+          name: http
+        volumeMounts:
+          - name: gowatchit-data
+            mountPath: /data
+        securityContext:
+          capabilities:
+            drop: ["ALL"]
+          allowPrivilegeEscalation: false
+          seccompProfile:
+            type: RuntimeDefault
+      volumes:
+        - name: gowatchit-data
+          nfs:
+            server: 192.168.0.123
+            path: /volume1/k8s-nfs/gowatchit-data

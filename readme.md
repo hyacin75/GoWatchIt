@@ -58,11 +58,17 @@ You can configure this to only load BEQ profiles, or do everything else besides 
 > ℹ  If you need help deploying with Docker, refer to the [Docker documentation](https://docs.docker.com/get-docker/).
 > ℹ  If you are using Jellyfin, read the Jellyfin specific instructions below
 
-1) Deploy the latest version `ghcr.io/iloveicedgreentea/gowatchit:latest` to your preferred Docker environment
+1) Deploy the latest version `ghcr.io/hyacin75/gowatchit:latest` to your preferred Docker environment
     * a docker-compose example is provided in the repo
 2) You must mount a volume to `/data`
 3) Configure the application via web ui -> `http://(your-server-ip):9999`
 4) Set up your player with the instructions below
+
+### Kubernetes Setup
+> ℹ  If you need help deploying with Kubernetes, stop, and seriously consider using Docker instead
+
+Sample deployment, service and Istio virtualservice manifests are provided for k8s to save having to create them from scratch if you are using a k8s cluster.
+If you're using a different ingress method, you presumably already know how to configure it.
 
 ### Plex Specifics
 1) get your player UUID(s) from `https://plex.tv/devices.xml` while logged in
@@ -71,6 +77,10 @@ You can configure this to only load BEQ profiles, or do everything else besides 
 3) Whitelist your server IP in Plex so it can call the API without authentication. [Docs](https://support.plex.tv/articles/200890058-authentication-for-local-network-access/)
 4) Add UUID(s) and user filters to the application config
 5) Play a movie and check server logs. It should say what it loaded and you should see whatever options you enabled work
+
+### Plex/TMDB Specifics
+1) Create [an account with TMDB](https://www.themoviedb.org/signup).
+2) To generate an API key for TMDB, create an account on their website, log in, navigate to your account settings, and apply for an API key in the API section. After your application is approved, you will find your API key listed there.
 
 ### Jellyfin Specifics
 
@@ -284,9 +294,7 @@ If enabled, it will also send a notification to Home Assistant via Notify so you
 For safety, the application tries to unload the profile when it loads up each time in case it crashed or was killed previously, and will unload before playing anything so it doesn't start playing something with the wrong profile. 
 
 ### Matching
-The application will search the catalog and match based on codec (Atmos, DTS-X, etc), title, year, TMDB, and edition. I have tested with multiple titles and everything matched as expected.
-
-> ⚠️ *If you get an incorrect match, please open a github issue with the full log output and expected codec and title*
+The application will search the catalog and match based on codec (Atmos, DTS-X, etc), title, year, TMDB, and edition. I have tested with multiple titles and everything matched as expected.  For TV shows it will further search for the specific episode, failing that, season, and failing that just the show ID.
 
 Jellyfin may have some issues matching as I have found it will sometimes just not return a TMDB. This has nothing to do with me. Jellyfin is generally just quite buggy. There is a configuration option that you should probably enable in the Jellyfin section which lets you skip TMDB matching. It will instead use the title name which could be prone to false negatives. 
 

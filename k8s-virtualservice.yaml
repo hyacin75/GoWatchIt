@@ -1,0 +1,19 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: gowatchit-vs
+  namespace: gowatchit
+spec:
+  hosts:
+  - "gowatchit.your.domain.example.com"
+  gateways:
+  - istio-system/ingress-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        port:
+          number: 9999
+        host: gowatchit.gowatchit.svc.cluster.local
