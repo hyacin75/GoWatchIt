@@ -2,6 +2,10 @@ name: multiarch-container-build
 
 on:
   pull_request:
+    types:
+      - opened
+      - reopened
+      - closed
     branches: ['master', 'develop']  # Triggers on PR to these branches
 
 env:
@@ -35,7 +39,22 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
-      - name: Build and push multi-arch
+      - name: Build multi-arch only if not merged
+        if: github.event.pull_request.merged == false
+        uses: docker/build-push-action@v6.18.0
+        with:
+          context: .
+          # Build for both architectures
+          platforms: linux/amd64,linux/arm64
+          push: false
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push multi-arch if PR merged
+        if: github.event.pull_request.merged == true
         uses: docker/build-push-action@v6.18.0
         with:
           context: .
