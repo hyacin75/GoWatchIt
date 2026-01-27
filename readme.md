@@ -67,8 +67,9 @@ You can configure this to only load BEQ profiles, or do everything else besides 
 ### Kubernetes Setup
 > ℹ  If you need help deploying with Kubernetes, stop, and seriously consider using Docker instead
 
-Sample deployment, service and Istio virtualservice manifests are provided for k8s to save having to create them from scratch if you are using a k8s cluster.
+Sample deployment with direct NFS storage, service and Istio virtualservice manifests are provided for k8s to save having to create them from scratch if you are using a k8s cluster.
 If you're using a different ingress method, you presumably already know how to configure it.
+If you want to use different storage, you presumably already know how to set that up too!
 
 ### Plex Specifics
 1) get your player UUID(s) from `https://plex.tv/devices.xml` while logged in
