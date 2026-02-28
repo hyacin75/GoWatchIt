@@ -17,6 +17,9 @@ func GetAVRClient(url string) AVRClient {
     case "denon":
         log.Debug("Creating Denon AVR client")
         return &DenonClient{ServerURL: url, Port: "23", TelClient: telnet.StandardCaller}
+    case "anthem":
+        log.Debug("Creating Anthem AVR client")
+        return &AnthemClient{ServerURL: url, Port: "14999"}
     // Add cases for other brands
     default:
 		log.Error("No AVR brand set in config")
